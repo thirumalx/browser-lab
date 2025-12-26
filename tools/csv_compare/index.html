@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSV Diff by Name and Value</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="../../assets/css/header.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    input[type="file"] {
+      margin: 10px 0;
+      padding: 5px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .tabs {
+      margin-top: 30px;
+    }
+
+    .tabs button {
+      background-color: #e0e0e0;
+      color: #333;
+      padding: 10px 20px;
+      margin-right: 5px;
+      border: none;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      cursor: pointer;
+    }
+
+    .tabs button.active {
+      background-color: #fff;
+      font-weight: bold;
+      border-bottom: 2px solid white;
+    }
+
+    .tab-content {
+      background-color: #fff;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-top: none;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    pre {
+      background: #f4f4f4;
+      padding: 10px;
+      border-left: 4px solid #007bff;
+      white-space: pre-wrap;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    code {
+      background-color: #e8e8e8;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body data-tool="CSV Diff by Name and Value">
+  <script src="../../assets/js/header.js"></script>
+  <h2>Compare CSV Files</h2>
+
+  <input type="file" id="csv1" accept=".csv"><br>
+  <input type="file" id="csv2" accept=".csv"><br>
+  <button onclick="compareCSVs()">Compare</button>
+
+  <div class="tabs">
+    <button id="tabNameBtn" onclick="showTab('nameTab')">Difference by <code>name</code></button>
+    <button id="tabValueBtn" onclick="showTab('valueTab')">Difference by <code>value</code></button>
+  </div>
+
+  <div id="nameTab" class="tab-content">
+    <h3>Rows Different by <code>name</code> Field</h3>
+    <pre id="outputName">No comparison yet.</pre>
+  </div>
+
+  <div id="valueTab" class="tab-content">
+    <h3>Rows Different by <code>value</code> Field</h3>
+    <pre id="outputValue">No comparison yet.</pre>
+  </div>
+
+  <script>
+    function readCSV(file) {
+      return new Promise((resolve) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: results => resolve(results.data)
+        });
+      });
+    }
+
+    function stripFields(rows, fieldsToRemove) {
+      return rows.map(row => {
+        const cleanRow = { ...row };
+        fieldsToRemove.forEach(field => delete cleanRow[field]);
+        return cleanRow;
+      });
+    }
+
+
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tabs button').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      if (tabId === 'nameTab') {
+        document.getElementById('tabNameBtn').classList.add('active');
+      } else {
+        document.getElementById('tabValueBtn').classList.add('active');
+      }
+    }
+
+    async function compareCSVs() {
+      const file1 = document.getElementById("csv1").files[0];
+      const file2 = document.getElementById("csv2").files[0];
+
+      if (!file1 || !file2) {
+        alert("Please select both CSV files.");
+        return;
+      }
+
+      const [data1, data2] = await Promise.all([readCSV(file1), readCSV(file2)]);
+
+      // --- Diff by 'name' field ---
+      const names1 = new Set(data1.map(row => row.name));
+      const names2 = new Set(data2.map(row => row.name));
+      
+     
+      let diffByName1 = data1.filter(row => !names2.has(row.name));
+      let diffByName2 = data2.filter(row => !names1.has(row.name));
+
+      const fieldsToRemove = ["crtd_tm", "crtd_by", "updt_tm", "uptd_by", "is_active", "is_refreshed", "src"];
+      // Strip fields that are not needed for name diff
+      diffByName1 = stripFields(diffByName1, fieldsToRemove);
+      diffByName2 = stripFields(diffByName2, fieldsToRemove);
+
+      document.getElementById("outputName").textContent =
+        `Rows only in File 1 (by name):(${diffByName1.length})\n${JSON.stringify(diffByName1, null, 2)}\n\n` +
+        `Rows only in File 2 (by name):(${diffByName2.length})\n${JSON.stringify(diffByName2, null, 2)}`;
+
+      // --- Diff by 'value' field ---
+      const values1 = new Set(data1.map(row => row.value));
+      const values2 = new Set(data2.map(row => row.value));
+
+      let diffByValue1 = data1.filter(row => !values2.has(row.value));
+      let diffByValue2 = data2.filter(row => !values1.has(row.value));
+
+      diffByValue1 = stripFields(diffByValue1, fieldsToRemove);
+      diffByValue2 = stripFields(diffByValue2, fieldsToRemove);
+     
+      document.getElementById("outputValue").textContent =
+        `Rows only in File 1 (by value):(${diffByValue1.length})\n${JSON.stringify(diffByValue1, null, 2)}\n\n` +
+        `Rows only in File 2 (by value):(${diffByValue2.length})\n${JSON.stringify(diffByValue2, null, 2)}`;
+
+      // Show first tab after comparison
+      showTab('nameTab');
+    }
+  </script>
+
+</body>
+</html>
