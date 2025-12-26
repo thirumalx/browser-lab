@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JSON Pretty Formatter</title>
+
+<link rel="stylesheet" href="../../assets/css/header.css">
+
+<style>
+body {
+    font-family: "Segoe UI", system-ui;
+    background: #f8fafc;
+    padding: 4px;
+    color: #1f2937;
+}
+
+h2 {
+    margin-bottom: 10px;
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+
+button.secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+textarea {
+    width: 100%;
+    height: 70vh;
+    font-family: Consolas, monospace;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    resize: none;
+    white-space: pre;
+}
+
+.error {
+    color: #dc2626;
+    margin-top: 8px;
+    font-weight: 600;
+}
+
+/* Tree View */
+#treeContainer {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 12px;
+    height: 70vh;
+    overflow: auto;
+    background: #ffffff;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+}
+
+.node {
+    margin-left: 16px;
+}
+
+.key {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.value {
+    color: #111827;
+}
+
+.toggle {
+    cursor: pointer;
+    margin-right: 6px;
+    user-select: none;
+}
+
+.collapsed > .children {
+    display: none;
+}
+</style>
+</head>
+
+<body data-tool="JSON Pretty Formatter">
+<script src="../../assets/js/header.js"></script>
+
+<h2>🧾 JSON Pretty Formatter</h2>
+
+<div class="toolbar">
+    <button onclick="pasteJson()">📋 Paste</button>
+    <button onclick="formatJson()">✨ Pretty</button>
+    <button onclick="toggleTreeView()">🌳 Tree View</button>
+    <button onclick="minifyJson()">📉 Minify</button>
+    <button onclick="copyJson()">📋 Copy</button>
+    <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+</div>
+
+<textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
+<div id="treeContainer" style="display:none;"></div>
+<div id="error" class="error"></div>
+
+<script>
+const textarea = document.getElementById("jsonInput");
+const errorBox = document.getElementById("error");
+const treeContainer = document.getElementById("treeContainer");
+
+let isTreeView = false;
+
+/* Auto format on typing */
+textarea.addEventListener("input", () => {
+    if (!textarea.value.trim()) {
+        errorBox.innerText = "";
+        return;
+    }
+    tryFormat(false);
+});
+
+/* JSON Helpers */
+function tryFormat(pretty) {
+    try {
+        const parsed = JSON.parse(textarea.value);
+        textarea.value = pretty
+            ? JSON.stringify(parsed, null, 4)
+            : JSON.stringify(parsed);
+        errorBox.innerText = "";
+        return true;
+    } catch {
+        errorBox.innerText = "❌ Invalid JSON";
+        return false;
+    }
+}
+
+function formatJson() {
+    tryFormat(true);
+}
+
+function minifyJson() {
+    tryFormat(false);
+}
+
+function copyJson() {
+    if (!textarea.value.trim()) return;
+    navigator.clipboard.writeText(textarea.value);
+}
+
+function clearAll() {
+    textarea.value = "";
+    errorBox.innerText = "";
+    hideTree();
+}
+
+async function pasteJson() {
+    try {
+        const text = await navigator.clipboard.readText();
+        textarea.value = text;
+        formatJson();
+    } catch {
+        errorBox.innerText = "❌ Clipboard access denied";
+    }
+}
+
+/* Tree View */
+function toggleTreeView() {
+    if (!textarea.value.trim()) return;
+
+    if (!isTreeView) {
+        showTree();
+    } else {
+        hideTree();
+    }
+}
+
+function showTree() {
+    try {
+        const json = JSON.parse(textarea.value);
+        treeContainer.innerHTML = "";
+        treeContainer.appendChild(buildTree(json));
+        textarea.style.display = "none";
+        treeContainer.style.display = "block";
+        isTreeView = true;
+    } catch {
+        errorBox.innerText = "❌ Invalid JSON";
+    }
+}
+
+function hideTree() {
+    treeContainer.style.display = "none";
+    textarea.style.display = "block";
+    isTreeView = false;
+}
+
+function buildTree(obj) {
+    const container = document.createElement("div");
+
+    Object.entries(obj).forEach(([key, value]) => {
+        const row = document.createElement("div");
+        row.className = "node";
+
+        if (typeof value === "object" && value !== null) {
+            const toggle = document.createElement("span");
+            toggle.className = "toggle";
+            toggle.textContent = "▶";
+
+            const label = document.createElement("span");
+            label.innerHTML = `<span class="key">${key}</span>:`;
+
+            const children = document.createElement("div");
+            children.className = "children";
+            children.appendChild(buildTree(value));
+
+            row.append(toggle, label, children);
+            row.classList.add("collapsed");
+
+            toggle.onclick = () => {
+                row.classList.toggle("collapsed");
+                toggle.textContent = row.classList.contains("collapsed") ? "▶" : "▼";
+            };
+        } else {
+            row.innerHTML = `
+                <span class="key">${key}</span>:
+                <span class="value">${JSON.stringify(value)}</span>
+            `;
+        }
+
+        container.appendChild(row);
+    });
+
+    return container;
+}
+</script>
+
+</body>
+</html>
