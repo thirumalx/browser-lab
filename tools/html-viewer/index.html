@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HTML Viewer</title>
+
+<style>
+    /* normalize box-sizing so textarea and preview align exactly */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+        font-family: "Segoe UI", system-ui;
+        background: #f8fafc;
+        padding: 20px;
+        color: #1f2937;
+    }
+
+    h2 {
+        margin-bottom: 10px;
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    /* pushes buttons to the right */
+    .toolbar .right {
+        margin-left: auto;
+        display: flex;
+        gap: 10px;
+    }
+
+    button {
+        padding: 8px 14px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+    }
+
+    button.secondary {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
+    .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 70vh;
+        font-family: Consolas, monospace;
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        resize: none;
+        box-sizing: border-box;
+    }
+
+    iframe {
+        width: 100%;
+        height: 70vh;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        background: white;
+        box-sizing: border-box;
+        display: block;
+    }
+</style>
+</head>
+
+<body>
+
+<h2>HTML Viewer</h2>
+
+<div class="toolbar">
+        <!-- Left side (empty for now or future items) -->
+    <div></div> 
+        <!-- Right side buttons -->
+    <div class="right">
+        <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+        <button id="copyOtpBtn" style="display:none;" onclick="copyOTP()">📋 Copy OTP</button>
+        <button id="copyLinkBtn" style="display:none;" onclick="copyLink()">🔗 Copy Link</button>
+    </div>
+</div>
+
+<div class="container">
+    <textarea id="source" placeholder="Paste HTML or email template here..."></textarea>
+    <iframe id="preview" sandbox="allow-same-origin"></iframe>
+</div>
+
+<script>
+let detectedOTP = null;
+let detectedLink = null;
+
+const textarea = document.getElementById("source");
+
+/* 🔥 Auto render on paste / typing */
+textarea.addEventListener("input", autoRender);
+
+function autoRender() {
+    const html = textarea.value;
+    const srcdoc = buildSrcdoc(html);
+    document.getElementById("preview").srcdoc = srcdoc;
+
+    detectOTP(html);
+    detectLink(html);
+}
+
+function buildSrcdoc(content){
+    const trimmed = (content || "").trim();
+    const isFull = /<!doctype|<html|<head/i.test(trimmed);
+    if(isFull) return content || "";
+
+    return `<!doctype html><html><head><meta charset="utf-8"><style>
+        html,body{margin:0;padding:0;box-sizing:border-box;height:100%;}
+        body{padding:12px;font-family:Consolas,monospace;font-size:14px;line-height:1.5;color:#111;background:white}
+        </style></head><body>${content}</body></html>`;
+}
+
+function detectOTP(text) {
+    const otpRegex = /\b\d{4,8}\b/;
+    const match = text.match(otpRegex);
+    const btn = document.getElementById("copyOtpBtn");
+
+    if (match) {
+        detectedOTP = match[0];
+        btn.style.display = "inline-block";
+        btn.innerText = `📋 Copy OTP (${detectedOTP})`;
+    } else {
+        detectedOTP = null;
+        btn.style.display = "none";
+    }
+}
+
+function detectLink(text) {
+    const linkRegex = /(https?:\/\/[^\s"'<>]+)/;
+    const match = text.match(linkRegex);
+    const btn = document.getElementById("copyLinkBtn");
+
+    if (match) {
+        detectedLink = match[0];
+        btn.style.display = "inline-block";
+    } else {
+        detectedLink = null;
+        btn.style.display = "none";
+    }
+}
+
+function copyOTP() {
+    if (!detectedOTP) return;
+    navigator.clipboard.writeText(detectedOTP).then(() => feedback("copyOtpBtn"));
+}
+
+function copyLink() {
+    if (!detectedLink) return;
+    navigator.clipboard.writeText(detectedLink).then(() => feedback("copyLinkBtn"));
+}
+
+function feedback(id) {
+    const btn = document.getElementById(id);
+    const txt = btn.innerText;
+    btn.innerText = "✅ Copied";
+    setTimeout(() => btn.innerText = txt, 1500);
+}
+
+function clearAll() {
+    textarea.value = "";
+    document.getElementById("preview").srcdoc = buildSrcdoc("");
+
+    document.getElementById("copyOtpBtn").style.display = "none";
+    document.getElementById("copyLinkBtn").style.display = "none";
+}
+</script>
+
+</body>
+</html>
