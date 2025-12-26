@@ -23,3 +23,41 @@
 .app-header a:hover {
     text-decoration: underline;
 }
+
+.app-header .left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-btn,
+.home-btn {
+    background: #1e293b;
+    border: none;
+    color: #e5e7eb;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    gap: 15px;
+}
+
+.nav-btn:hover,
+.home-btn:hover {
+    background: #334155;
+}
+
+.nav-btn:disabled,
+.home-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+
+.title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-left: 4px;
+}
