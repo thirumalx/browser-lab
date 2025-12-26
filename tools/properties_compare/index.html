@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>.properties File Comparator</title>
+<style>
+    body {
+        font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont;
+        background: #f8fafc;
+        padding: 1px;
+        color: #1f2937;
+    }
+
+    h2 {
+        margin-bottom: 10px;
+    }
+
+    /* Row layout */
+    .controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        background: #ffffff;
+        padding: 1px;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        max-width: 1000px;
+    }
+
+    /* File input */
+    input[type="file"] {
+        padding: 6px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: #ffffff;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button {
+        background: #e5e7eb;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        margin-right: 8px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+        background: #d1d5db;
+    }
+
+    /* Compare button */
+    button {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #ffffff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
+    }
+
+    button:active {
+        transform: translateY(0);
+        box-shadow: none;
+    }
+
+    /* Table */
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 25px;
+        background: #ffffff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 14px;
+    }
+
+    th {
+        background: #f1f5f9;
+        font-weight: 600;
+    }
+
+    tr.diff {
+        background: #89f3d9;
+    }
+
+    tr.missing {
+        background: #ec7d7d;
+    }
+</style>
+
+</head>
+<body>
+
+<h2>.properties File Comparison</h2>
+
+<div class="controls">
+    <input type="file" id="file1" accept=".properties">
+    <input type="file" id="file2" accept=".properties">
+    <button onclick="compareFiles()">Compare</button>
+</div>
+
+<div id="result"></div>
+
+<script>
+function parseProperties(text) {
+    const props = {};
+    text.split('\n').forEach(line => {
+        line = line.trim();
+        if (!line || line.startsWith('#') || line.startsWith('!')) return;
+
+        const idx = line.indexOf('=');
+        if (idx > -1) {
+            const key = line.substring(0, idx).trim();
+            const value = line.substring(idx + 1).trim();
+            props[key] = value;
+        }
+    });
+    return props;
+}
+
+function readFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+async function compareFiles() {
+    const f1 = document.getElementById('file1').files[0];
+    const f2 = document.getElementById('file2').files[0];
+
+    if (!f1 || !f2) {
+        alert("Please select both files");
+        return;
+    }
+
+    const [t1, t2] = await Promise.all([
+        readFile(f1),
+        readFile(f2)
+    ]);
+
+    const p1 = parseProperties(t1);
+    const p2 = parseProperties(t2);
+
+    const allKeys = new Set([...Object.keys(p1), ...Object.keys(p2)]);
+
+    let html = `
+    <table>
+        <tr>
+            <th>Key</th>
+            <th>File 1 Value</th>
+            <th>File 2 Value</th>
+        </tr>
+    `;
+
+    allKeys.forEach(key => {
+        const v1 = p1[key];
+        const v2 = p2[key];
+
+        let cls = '';
+        if (v1 === undefined || v2 === undefined) {
+            cls = 'missing';
+        } else if (v1 !== v2) {
+            cls = 'diff';
+        }
+
+        html += `
+        <tr class="${cls}">
+            <td>${key}</td>
+            <td>${v1 ?? '❌ Missing'}</td>
+            <td>${v2 ?? '❌ Missing'}</td>
+        </tr>`;
+    });
+
+    html += '</table>';
+    document.getElementById('result').innerHTML = html;
+}
+</script>
+
+</body>
+</html>
