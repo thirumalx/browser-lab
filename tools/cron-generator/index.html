@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cron Generator</title>
+
+<link rel="stylesheet" href="../../assets/css/header.css">
+
+<style>
+body {
+    font-family: "Segoe UI", system-ui;
+    background: #f8fafc;
+    padding: 4px;
+    color: #1f2937;
+}
+
+h2 {
+    margin-bottom: 10px;
+}
+
+.form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+label {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+}
+
+select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+}
+
+.output {
+    background: white;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    font-family: Consolas, monospace;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.desc {
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+
+#nextRuns {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-family: Consolas, monospace;
+}
+
+#nextRuns li {
+    margin: 4px 0;
+}
+
+</style>
+</head>
+
+<body data-tool="Cron Generator">
+<script src="../../assets/js/header.js"></script>
+
+<h2>⏱ Cron Expression Generator</h2>
+
+<div class="form">
+    <div>
+        <label>Minute</label>
+        <select id="minute">
+            <option value="*">Every minute</option>
+            <option value="0">At minute 0</option>
+            <option value="*/5">Every 5 minutes</option>
+            <option value="*/10">Every 10 minutes</option>
+            <option value="*/15">Every 15 minutes</option>
+            <option value="*/30">Every 30 minutes</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Hour</label>
+        <select id="hour">
+            <option value="*">Every hour</option>
+            <option value="0">At 00</option>
+            <option value="6">06 AM</option>
+            <option value="12">12 PM</option>
+            <option value="18">06 PM</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Day of Month</label>
+        <select id="day">
+            <option value="*">Every day</option>
+            <option value="1">1st</option>
+            <option value="15">15th</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Month</label>
+        <select id="month">
+            <option value="*">Every month</option>
+            <option value="1">January</option>
+            <option value="6">June</option>
+            <option value="12">December</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Day of Week</label>
+        <select id="week">
+            <option value="*">Every day</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="0">Sunday</option>
+        </select>
+    </div>
+</div>
+
+<div class="desc" id="description"></div>
+
+<div class="output" id="cronOutput">* * * * *</div>
+
+<div class="desc">Next executions:</div>
+<ul id="nextRuns"></ul>
+
+<button onclick="copyCron()">📋 Copy Cron</button>
+
+
+<script>
+const fields = ["minute", "hour", "day", "month", "week"];
+
+fields.forEach(id => {
+    document.getElementById(id).addEventListener("change", updateCron);
+});
+
+function updateCron() {
+    const cron = [
+        minute.value,
+        hour.value,
+        day.value,
+        month.value,
+        week.value
+    ].join(" ");
+
+    cronOutput.innerText = cron;
+    description.innerText = describeCron();
+}
+
+function describeCron() {
+    return `Runs at minute "${minute.value}", hour "${hour.value}", day "${day.value}", month "${month.value}", weekday "${week.value}"`;
+}
+
+function copyCron() {
+    navigator.clipboard.writeText(cronOutput.innerText);
+}
+
+function updateCron() {
+    const cron = [
+        minute.value,
+        hour.value,
+        day.value,
+        month.value,
+        week.value
+    ].join(" ");
+
+    cronOutput.innerText = cron;
+    description.innerText = describeCron();
+    calculateNextRuns();
+}
+
+function calculateNextRuns() {
+    const results = [];
+    let date = new Date();
+    date.setSeconds(0);
+
+    while (results.length < 5) {
+        date.setMinutes(date.getMinutes() + 1);
+
+        if (matchesCron(date)) {
+            results.push(new Date(date));
+        }
+    }
+
+    const list = document.getElementById("nextRuns");
+    list.innerHTML = "";
+
+    results.forEach(d => {
+        const li = document.createElement("li");
+        li.innerText = d.toLocaleString();
+        list.appendChild(li);
+    });
+}
+
+function matchesCron(date) {
+    return matchField(minute.value, date.getMinutes()) &&
+           matchField(hour.value, date.getHours()) &&
+           matchField(day.value, date.getDate()) &&
+           matchField(month.value, date.getMonth() + 1) &&
+           matchField(week.value, date.getDay());
+}
+
+function matchField(field, value) {
+    if (field === "*") return true;
+    if (field.startsWith("*/")) {
+        const step = parseInt(field.slice(2));
+        return value % step === 0;
+    }
+    return parseInt(field) === value;
+}
+
+</script>
+
+</body>
+</html>
