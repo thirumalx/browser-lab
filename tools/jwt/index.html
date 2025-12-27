@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JWT Decoder</title>
+<link rel="stylesheet" href="../../assets/css/header.css">
+
+<style>
+body {
+    font-family: "Segoe UI", system-ui;
+    background: #f8fafc;
+    padding: 2px;
+    color: #1f2937;
+}
+
+h2 {
+    margin-bottom: 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 120px;
+    font-family: Consolas, monospace;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    resize: none;
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+
+button.secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.panel {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 12px;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+}
+
+.status {
+    margin-top: 8px;
+    font-weight: 700;
+}
+
+.valid { color: #16a34a; }
+.expired { color: #dc2626; }
+.error { color: #dc2626; }
+</style>
+</head>
+
+<body data-tool="JWT Decoder">
+<script src="../../assets/js/header.js"></script>
+
+<h2>🔐 JWT Decoder</h2>
+
+<div class="toolbar">
+    <button onclick="pasteJwt()">📋 Paste</button>
+    <button onclick="decodeJwt()">🔍 Decode</button>
+    <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+</div>
+
+<textarea id="jwtInput" placeholder="Paste JWT token here..."></textarea>
+<div id="status" class="status"></div>
+
+<div class="container">
+    <div class="panel">
+        <h3>Header</h3>
+        <pre id="headerOut"></pre>
+        <button onclick="copy('headerOut')">📋 Copy</button>
+    </div>
+
+    <div class="panel">
+        <h3>Payload</h3>
+        <pre id="payloadOut"></pre>
+        <button onclick="copy('payloadOut')">📋 Copy</button>
+    </div>
+</div>
+
+<script>
+const input = document.getElementById("jwtInput");
+const headerOut = document.getElementById("headerOut");
+const payloadOut = document.getElementById("payloadOut");
+const statusBox = document.getElementById("status");
+
+/* Auto decode on paste / typing */
+input.addEventListener("input", () => {
+    if (input.value.includes(".")) decodeJwt();
+});
+
+function base64UrlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    return decodeURIComponent(
+        atob(str)
+            .split('')
+            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+    );
+}
+
+function decodeJwt() {
+    try {
+        const token = input.value.trim();
+        if (!token) return;
+
+        const parts = token.split(".");
+        if (parts.length !== 3) throw "Invalid JWT format";
+
+        const header = JSON.parse(base64UrlDecode(parts[0]));
+        const payload = JSON.parse(base64UrlDecode(parts[1]));
+
+        headerOut.textContent = JSON.stringify(header, null, 4);
+        payloadOut.textContent = JSON.stringify(payload, null, 4);
+
+        checkExpiry(payload);
+    } catch (e) {
+        statusBox.textContent = "❌ Invalid JWT";
+        statusBox.className = "status error";
+        headerOut.textContent = "";
+        payloadOut.textContent = "";
+    }
+}
+
+function checkExpiry(payload) {
+    if (!payload.exp) {
+        statusBox.textContent = "ℹ️ No expiration (exp) claim found";
+        statusBox.className = "status";
+        return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const exp = payload.exp;
+
+    if (now > exp) {
+        statusBox.textContent = "❌ Token Expired";
+        statusBox.className = "status expired";
+    } else {
+        const mins = Math.floor((exp - now) / 60);
+        statusBox.textContent = `✅ Token Valid (expires in ${mins} min)`;
+        statusBox.className = "status valid";
+    }
+}
+
+function pasteJwt() {
+    navigator.clipboard.readText().then(text => {
+        input.value = text;
+        decodeJwt();
+    });
+}
+
+function copy(id) {
+    const text = document.getElementById(id).textContent;
+    if (text) navigator.clipboard.writeText(text);
+}
+
+function clearAll() {
+    input.value = "";
+    headerOut.textContent = "";
+    payloadOut.textContent = "";
+    statusBox.textContent = "";
+}
+</script>
+
+</body>
+</html>

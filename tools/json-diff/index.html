@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JSON Diff Tool</title>
+<link rel="stylesheet" href="../../assets/css/header.css">
+
+<style>
+body {
+    font-family: "Segoe UI", system-ui;
+    background: #f8fafc;
+    padding: 2px;
+    color: #1f2937;
+}
+
+h2 {
+    margin-bottom: 10px;
+}
+
+.toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+
+button.secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+textarea {
+    width: 100%;
+    height: 45vh;
+    font-family: Consolas, monospace;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    resize: none;
+}
+
+.diff {
+    margin-top: 12px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 12px;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+}
+
+.added { color: #16a34a; }
+.removed { color: #dc2626; }
+.changed { color: #d97706; }
+.error { color: #dc2626; font-weight: 600; }
+</style>
+</head>
+
+<body data-tool="JSON Diff Tool">
+<script src="../../assets/js/header.js"></script>
+
+<h2>🔍 JSON Diff Tool</h2>
+
+<div class="toolbar">
+    <button onclick="pasteLeft()">📋 Paste Left</button>
+    <button onclick="pasteRight()">📋 Paste Right</button>
+    <button onclick="compare()">🔍 Compare</button>
+    <button onclick="copyDiff()">📋 Copy Diff</button>
+    <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+</div>
+
+<div class="container">
+    <textarea id="left" placeholder="Expected JSON"></textarea>
+    <textarea id="right" placeholder="Actual JSON"></textarea>
+</div>
+
+<div id="diff" class="diff"></div>
+
+<script>
+const leftBox = document.getElementById("left");
+const rightBox = document.getElementById("right");
+const diffBox = document.getElementById("diff");
+
+/* Auto format on paste */
+[leftBox, rightBox].forEach(box => {
+    box.addEventListener("input", () => autoFormat(box));
+});
+
+function autoFormat(box) {
+    try {
+        const obj = JSON.parse(box.value);
+        box.value = JSON.stringify(obj, null, 4);
+    } catch {}
+}
+
+function compare() {
+    diffBox.innerHTML = "";
+    try {
+        const left = JSON.parse(leftBox.value);
+        const right = JSON.parse(rightBox.value);
+        diffObjects(left, right, "");
+        if (!diffBox.innerHTML) {
+            diffBox.innerHTML = "✅ No differences found";
+        }
+    } catch {
+        diffBox.innerHTML = "<span class='error'>❌ Invalid JSON</span>";
+    }
+}
+
+function diffObjects(a, b, path) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+
+    keys.forEach(key => {
+        const newPath = path ? path + "." + key : key;
+
+        if (!(key in b)) {
+            diffBox.innerHTML += `<div class="removed">❌ Missing in Right: ${newPath}</div>`;
+        } else if (!(key in a)) {
+            diffBox.innerHTML += `<div class="added">➕ Added in Right: ${newPath}</div>`;
+        } else if (typeof a[key] === "object" && typeof b[key] === "object") {
+            diffObjects(a[key], b[key], newPath);
+        } else if (a[key] !== b[key]) {
+            diffBox.innerHTML +=
+                `<div class="changed">🔁 Changed ${newPath}: ${a[key]} → ${b[key]}</div>`;
+        }
+    });
+}
+
+function pasteLeft() {
+    navigator.clipboard.readText().then(t => leftBox.value = t);
+}
+
+function pasteRight() {
+    navigator.clipboard.readText().then(t => rightBox.value = t);
+}
+
+function copyDiff() {
+    if (diffBox.innerText)
+        navigator.clipboard.writeText(diffBox.innerText);
+}
+
+function clearAll() {
+    leftBox.value = "";
+    rightBox.value = "";
+    diffBox.innerHTML = "";
+}
+</script>
+
+</body>
+</html>
