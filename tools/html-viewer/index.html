@@ -90,6 +90,9 @@
     <div class="right">
         <button onclick="clearAll()" class="secondary">🧹 Clear</button>
         <button id="copyOtpBtn" style="display:none;" onclick="copyOTP()">📋 Copy OTP</button>
+        <button id="copyRefBtn" style="display:none;" onclick="copyRef()">🧾 Copy Ref No</button>
+        <button id="copyPasscodeBtn" style="display:none;" onclick="copyPasscode()">🔐 Copy Passcode</button>
+
         <button id="copyLinkBtn" style="display:none;" onclick="copyLink()">🔗 Copy Link</button>
     </div>
 </div>
@@ -102,6 +105,8 @@
 <script>
 let detectedOTP = null;
 let detectedLink = null;
+let detectedPasscode = null;
+let detectedRef = null;
 
 const textarea = document.getElementById("source");
 
@@ -126,7 +131,9 @@ function autoRender() {
      // Detection uses text-only content
     const textOnly = extractTextOnly(html);
     detectOTP(textOnly);
+    detectPasscode(textOnly);
     detectLink(html);
+    detectReference(textOnly); 
 }
 
 function buildSrcdoc(content){
@@ -155,6 +162,37 @@ function detectOTP(text) {
     }
 }
 
+function detectReference(text) {
+    const refRegex = /reference\s+number\s+is\s+(\d{4,12})/i;
+    const match = text.match(refRegex);
+    const btn = document.getElementById("copyRefBtn");
+
+    if (match) {
+        detectedRef = match[1];
+        btn.style.display = "inline-block";
+        btn.innerText = `🧾 Copy Ref (${detectedRef})`;
+    } else {
+        detectedRef = null;
+        btn.style.display = "none";
+    }
+}
+
+function detectPasscode(text) {
+    const passcodeRegex = /passcode.*?(?:first\s+four\s+digits)?.*?:\s*(\d{4,8})/i;
+    const match = text.match(passcodeRegex);
+    const btn = document.getElementById("copyPasscodeBtn");
+
+    if (match) {
+        detectedPasscode = match[1];
+        btn.style.display = "inline-block";
+        btn.innerText = `🔐 Copy Passcode (${detectedPasscode})`;
+    } else {
+        detectedPasscode = null;
+        btn.style.display = "none";
+    }
+}
+
+
 function detectLink(text) {
     const linkRegex = /(https?:\/\/[^\s"'<>]+)/;
     const match = text.match(linkRegex);
@@ -174,10 +212,24 @@ function copyOTP() {
     navigator.clipboard.writeText(detectedOTP).then(() => feedback("copyOtpBtn"));
 }
 
+function copyRef() {
+    if (!detectedRef) return;
+    navigator.clipboard.writeText(detectedRef)
+        .then(() => feedback("copyRefBtn"));
+}
+
+
 function copyLink() {
     if (!detectedLink) return;
     navigator.clipboard.writeText(detectedLink).then(() => feedback("copyLinkBtn"));
 }
+
+function copyPasscode() {
+    if (!detectedPasscode) return;
+    navigator.clipboard.writeText(detectedPasscode)
+        .then(() => feedback("copyPasscodeBtn"));
+}
+
 
 function feedback(id) {
     const btn = document.getElementById(id);
@@ -192,6 +244,12 @@ function clearAll() {
 
     document.getElementById("copyOtpBtn").style.display = "none";
     document.getElementById("copyLinkBtn").style.display = "none";
+    document.getElementById("copyRefBtn").style.display = "none";
+    document.getElementById("copyPasscodeBtn").style.display = "none";
+    detectedOTP = null;
+    detectedLink = null;
+    detectedRef = null;
+    detectedPasscode = null;
 }
 </script>
 
