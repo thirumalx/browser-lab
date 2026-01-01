@@ -129,7 +129,7 @@ function buildSrcdoc(content){
 }
 
 function detectOTP(text) {
-    const otpRegex = /\b\d{4,8}\b/;
+    const otpRegex = /\b\d{6,8}\b/;
     const match = text.match(otpRegex);
     const btn = document.getElementById("copyOtpBtn");
 
