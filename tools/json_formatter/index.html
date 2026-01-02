@@ -20,10 +20,28 @@ h2 {
 
 .toolbar {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.toolbar-left {
+    display: flex;
     gap: 10px;
-    margin-bottom: 12px;
     flex-wrap: wrap;
 }
+
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.toolbar-error {
+    margin-left: auto;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
 
 button {
     padding: 8px 14px;
@@ -92,6 +110,12 @@ textarea {
 .collapsed > .children {
     display: none;
 }
+
+textarea.error-highlight {
+    border-color: #dc2626;
+    background: #fef2f2;
+}
+
 </style>
 </head>
 
@@ -101,17 +125,23 @@ textarea {
 <h2>🧾 JSON Pretty Formatter</h2>
 
 <div class="toolbar">
-    <button onclick="pasteJson()">📋 Paste</button>
-    <button onclick="formatJson()">✨ Pretty</button>
-    <button onclick="toggleTreeView()">🌳 Tree View</button>
-    <button onclick="minifyJson()">📉 Minify</button>
-    <button onclick="copyJson()">📋 Copy</button>
-    <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+    <div class="toolbar-left">
+        <button onclick="pasteJson()">📋 Paste</button>
+        <button onclick="formatJson()">✨ Pretty</button>
+        <button onclick="toggleTreeView()">🌳 Tree View</button>
+        <button onclick="minifyJson()">📉 Minify</button>
+        <button onclick="copyJson()">📋 Copy</button>
+        <button onclick="clearAll()" class="secondary">🧹 Clear</button>
+    </div>
+    <div class="toolbar-right">
+        <div id="error" class="error"></div>
+    </div>
+    
 </div>
 
 <textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
 <div id="treeContainer" style="display:none;"></div>
-<div id="error" class="error"></div>
+
 
 <script>
 const textarea = document.getElementById("jsonInput");
@@ -124,25 +154,120 @@ let isTreeView = false;
 textarea.addEventListener("input", () => {
     if (!textarea.value.trim()) {
         errorBox.innerText = "";
+        textarea.classList.remove("error-highlight");
         return;
     }
-    tryFormat(false);
+
+    try {
+        JSON.parse(textarea.value);
+        errorBox.innerText = "";
+        textarea.classList.remove("error-highlight");
+   } catch (e) {
+    textarea.classList.add("error-highlight");
+
+    let line = null;
+    let column = null;
+
+    // Chrome / Edge
+    let match = e.message.match(/position (\d+)/);
+    if (match) {
+        const pos = Number(match[1]);
+        ({ line, column } = getLineColumn(textarea.value, pos));
+        highlightErrorPosition(pos);
+    }
+
+    // Firefox
+    match = e.message.match(/line (\d+) column (\d+)/);
+    if (match) {
+        line = Number(match[1]);
+        column = Number(match[2]);
+        highlightLineByNumber(line);
+    }
+
+    if (line && column) {
+        errorBox.innerText = `❌ Invalid JSON at line ${line}, column ${column}`;
+    } else {
+        errorBox.innerText = "❌ Invalid JSON";
+    }
+}
+
 });
+
+
+function getLineColumn(text, index) {
+    const lines = text.substring(0, index).split("\n");
+    return {
+        line: lines.length,
+        column: lines[lines.length - 1].length + 1
+    };
+}
+
+function highlightErrorPosition(index) {
+    const text = textarea.value;
+    let start = index;
+    let end = index;
+
+    while (start > 0 && text[start - 1] !== "\n") start--;
+    while (end < text.length && text[end] !== "\n") end++;
+
+    // Delay is REQUIRED for textarea selection
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, end);
+    }, 0);
+}
+
+function highlightLineByNumber(lineNumber) {
+    const lines = textarea.value.split("\n");
+    let start = 0;
+
+    for (let i = 0; i < lineNumber - 1; i++) {
+        start += lines[i].length + 1;
+    }
+
+    const end = start + lines[lineNumber - 1].length;
+
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, end);
+    }, 0);
+}
+
+
 
 /* JSON Helpers */
 function tryFormat(pretty) {
+    textarea.classList.remove("error-highlight");
+
     try {
         const parsed = JSON.parse(textarea.value);
         textarea.value = pretty
             ? JSON.stringify(parsed, null, 4)
             : JSON.stringify(parsed);
+
         errorBox.innerText = "";
         return true;
-    } catch {
-        errorBox.innerText = "❌ Invalid JSON";
+
+    } catch (e) {
+        textarea.classList.add("error-highlight");
+
+        const match = e.message.match(/position (\d+)/);
+        if (match) {
+            const pos = Number(match[1]);
+            const { line, column } = getLineColumn(textarea.value, pos);
+
+            errorBox.innerText =
+                `❌ Invalid JSON at line ${line}, column ${column}`;
+
+            highlightErrorPosition(pos);
+        } else {
+            errorBox.innerText = "❌ Invalid JSON";
+        }
         return false;
     }
 }
+
+
 
 function formatJson() {
     tryFormat(true);
