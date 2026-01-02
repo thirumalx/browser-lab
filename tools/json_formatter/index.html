@@ -59,16 +59,45 @@ button.secondary {
     color: #111827;
 }
 
+.editor-wrapper {
+    display: flex;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+
+.line-numbers {
+    background: #f1f5f9;
+    color: #64748b;
+      min-width: 40px;
+    padding: 12px 8px;
+    text-align: right;
+    user-select: none;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.4;   /* same */
+    overflow: hidden;
+}
+
+
+.line-numbers span {
+    display: block;
+}
+
 textarea {
     width: 100%;
     height: 70vh;
-    font-family: Consolas, monospace;
     padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #d1d5db;
+    border: none;
     resize: none;
-    white-space: pre;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.4;   /* 🔑 MUST match line-numbers */
+    outline: none;
 }
+
+
 
 .error {
     color: #dc2626;
@@ -121,9 +150,6 @@ textarea.error-highlight {
 
 <body data-tool="JSON Pretty Formatter">
 <script src="../../assets/js/header.js"></script>
-
-<h2>🧾 JSON Pretty Formatter</h2>
-
 <div class="toolbar">
     <div class="toolbar-left">
         <button onclick="pasteJson()">📋 Paste</button>
@@ -139,12 +165,17 @@ textarea.error-highlight {
     
 </div>
 
-<textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
+<div class="editor-wrapper">
+    <div id="lineNumbers" class="line-numbers"></div>
+    <textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
+</div>
+
 <div id="treeContainer" style="display:none;"></div>
 
 
 <script>
 const textarea = document.getElementById("jsonInput");
+const lineNumbers = document.getElementById("lineNumbers");
 const errorBox = document.getElementById("error");
 const treeContainer = document.getElementById("treeContainer");
 
@@ -152,6 +183,7 @@ let isTreeView = false;
 
 /* Auto format on typing */
 textarea.addEventListener("input", () => {
+    updateLineNumbers();
     if (!textarea.value.trim()) {
         errorBox.innerText = "";
         textarea.classList.remove("error-highlight");
@@ -193,6 +225,11 @@ textarea.addEventListener("input", () => {
 
 });
 
+textarea.addEventListener("scroll", () => {
+    lineNumbers.scrollTop = textarea.scrollTop;
+});
+
+
 
 function getLineColumn(text, index) {
     const lines = text.substring(0, index).split("\n");
@@ -201,6 +238,16 @@ function getLineColumn(text, index) {
         column: lines[lines.length - 1].length + 1
     };
 }
+
+function updateLineNumbers() {
+    const lines = textarea.value.split("\n").length || 1;
+    let html = "";
+    for (let i = 1; i <= lines; i++) {
+        html += `<span>${i}</span>`;
+    }
+    lineNumbers.innerHTML = html;
+}
+
 
 function highlightErrorPosition(index) {
     const text = textarea.value;
@@ -366,6 +413,8 @@ function buildTree(obj) {
 
     return container;
 }
+updateLineNumbers();
+
 </script>
 
 </body>
