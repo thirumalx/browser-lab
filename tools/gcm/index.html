@@ -1,97 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>AES-GCM Encrypt / Decrypt Utility</title>
+<meta charset="UTF-8">
+<title>AES-GCM Encrypt / Decrypt Utility</title>
+ <link rel="stylesheet" href="../../assets/css/header.css">
+<style>
+    
+  body {
+    font-family: "Segoe UI", system-ui;
+    background: #f8fafc;
+    margin: 0;
+    padding: 20px;
+    color: #1f2937;
+  }
 
-  <style>
-    body {
-      font-family: "Segoe UI", system-ui;
-      background: #f8fafc;
-      padding: 20px;
-      color: #1f2937;
-    }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
 
-    textarea, input {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      font-family: monospace;
-    }
+  header h2 {
+    margin: 0;
+    white-space: nowrap;
+  }
 
-    button {
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      padding: 10px 16px;
-      font-size: 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
+  header input {
+    flex: 1;
+    padding: 8px;
+    font-family: monospace;
+  }
 
-    button:hover {
-      background-color: #1e40af;
-    }
+  .container {
+    display: flex;
+    gap: 20px;
+  }
 
-    pre {
-      background: #111827;
-      color: #e5e7eb;
-      padding: 12px;
-      border-radius: 6px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
+  .panel {
+    flex: 1;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  }
 
-    .error {
-      color: #dc2626;
-      font-weight: bold;
-      margin-top: 10px;
-    }
+  .panel h3 {
+    margin-top: 0;
+  }
 
-    h3 {
-      margin-top: 30px;
-    }
-  </style>
+  textarea {
+    width: 100%;
+    height: 160px;
+    padding: 10px;
+    font-family: monospace;
+    resize: vertical;
+  }
+
+  button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  button:hover {
+    background-color: #1e40af;
+  }
+
+  .error {
+    margin-top: 10px;
+    color: #dc2626;
+    font-weight: bold;
+  }
+
+  label {
+    font-weight: 600;
+    display: block;
+    margin-top: 10px;
+  }
+</style>
 </head>
+
 <body>
 
-<h2>🔐 AES-GCM Encrypt / Decrypt (Java Compatible)</h2>
-
-<label><b>AES Key (Base64 – 16/24/32 bytes)</b></label>
-<input id="keyBase64" placeholder="tEQJGsNTE7zVbdv1+TkBtL3Ok5bB2+dOqZw2rbxr6G0=">
-
-<label><b>IV (Base64 – 12 or 16 bytes)</b></label>
-<input id="ivBase64" placeholder="MyQXwJ4i9k/y8jZ1">
-
-<h3>📥 Plain TEXT/JSON</h3>
-<textarea id="plainText" rows="6">Hello from browser!</textarea>
-
-<button onclick="encrypt()">Encrypt ➜</button>
-
-<h3>🔐 Encrypted Output</h3>
-<label>Ciphertext (Base64)</label>
-<textarea id="cipherText" rows="4"></textarea>
-
-<button onclick="decrypt()">Decrypt ➜</button>
-
-<h3>📤 Decrypted JSON</h3>
-<textarea id="decryptedText" rows="6"></textarea>
-
+<header data-tool="🔐 AES-GCM Utility">
+  <script src="../../assets/js/header.js"></script>
+  <label> AES Key (Base64)<input id="keyBase64" placeholder="tEQJGsNTE7zVbdv1+TkBtL3Ok5bB2+dOqZw2rbxr6G0="></label>
+  <label> IV (Base64)<input id="ivBase64" placeholder="MyQXwJ4i9k/y8jZ1"></label>
+</header>
 <div id="error" class="error"></div>
+<div class="container">  
+  <!-- Encrypt -->
+  <div class="panel">
+    <h3>Encrypt ➜</h3>
+
+    <label>Plain JSON</label>
+    <textarea id="plainText">Hello from browser!</textarea>
+
+    <button onclick="encrypt()">Encrypt</button>
+
+    <label>Ciphertext (Base64)</label>
+    <textarea id="cipherText"></textarea>
+  </div>
+
+  <!-- Decrypt -->
+  <div class="panel">
+    <h3>Decrypt ➜</h3>
+
+    <label>Ciphertext (Base64)</label>
+    <textarea id="cipherInput"></textarea>
+
+    <button onclick="decrypt()">Decrypt</button>
+
+    <label>Decrypted JSON</label>
+    <textarea id="decryptedText"></textarea>
+  </div>
+
+</div>
+
+
 
 <script>
-  /* ---------- Base64 helpers ---------- */
-  function base64ToBytes(base64) {
-    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  function base64ToBytes(b64) {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   }
 
   function bytesToBase64(bytes) {
     return btoa(String.fromCharCode(...bytes));
   }
 
-  /* ---------- Import AES key ---------- */
-  async function importAesKey(base64Key) {
+  async function importKey(base64Key) {
     return crypto.subtle.importKey(
       "raw",
       base64ToBytes(base64Key),
@@ -101,42 +144,35 @@
     );
   }
 
-  /* ---------- Encrypt ---------- */
   async function encrypt() {
     try {
       clearError();
 
-      const keyB64 = keyBase64.value.trim();
-      const ivB64 = ivBase64.value.trim();
-      const plain = plainText.value;
-
-      const key = await importAesKey(keyB64);
-      const iv = base64ToBytes(ivB64);
+      const key = await importKey(keyBase64.value.trim());
+      const iv = base64ToBytes(ivBase64.value.trim());
+      const data = new TextEncoder().encode(plainText.value);
 
       const encrypted = await crypto.subtle.encrypt(
         { name: "AES-GCM", iv, tagLength: 128 },
         key,
-        new TextEncoder().encode(plain)
+        data
       );
 
-      cipherText.value = bytesToBase64(new Uint8Array(encrypted));
+      const b64 = bytesToBase64(new Uint8Array(encrypted));
+      cipherText.value = b64;
+      cipherInput.value = b64; // copy to decrypt side automatically
     } catch (e) {
       showError(e);
     }
   }
 
-  /* ---------- Decrypt ---------- */
   async function decrypt() {
     try {
       clearError();
 
-      const keyB64 = keyBase64.value.trim();
-      const ivB64 = ivBase64.value.trim();
-      const cipherB64 = cipherText.value.trim();
-
-      const key = await importAesKey(keyB64);
-      const iv = base64ToBytes(ivB64);
-      const cipherBytes = base64ToBytes(cipherB64);
+      const key = await importKey(keyBase64.value.trim());
+      const iv = base64ToBytes(ivBase64.value.trim());
+      const cipherBytes = base64ToBytes(cipherInput.value.trim());
 
       const decrypted = await crypto.subtle.decrypt(
         { name: "AES-GCM", iv, tagLength: 128 },
