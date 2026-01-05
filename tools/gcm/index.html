@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AES-GCM Encrypt / Decrypt Utility</title>
+
+  <style>
+    body {
+      font-family: "Segoe UI", system-ui;
+      background: #f8fafc;
+      padding: 20px;
+      color: #1f2937;
+    }
+
+    textarea, input {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      font-family: monospace;
+    }
+
+    button {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #1e40af;
+    }
+
+    pre {
+      background: #111827;
+      color: #e5e7eb;
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .error {
+      color: #dc2626;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    h3 {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>🔐 AES-GCM Encrypt / Decrypt (Java Compatible)</h2>
+
+<label><b>AES Key (Base64 – 16/24/32 bytes)</b></label>
+<input id="keyBase64" placeholder="tEQJGsNTE7zVbdv1+TkBtL3Ok5bB2+dOqZw2rbxr6G0=">
+
+<label><b>IV (Base64 – 12 or 16 bytes)</b></label>
+<input id="ivBase64" placeholder="MyQXwJ4i9k/y8jZ1">
+
+<h3>📥 Plain TEXT/JSON</h3>
+<textarea id="plainText" rows="6">Hello from browser!</textarea>
+
+<button onclick="encrypt()">Encrypt ➜</button>
+
+<h3>🔐 Encrypted Output</h3>
+<label>Ciphertext (Base64)</label>
+<textarea id="cipherText" rows="4"></textarea>
+
+<button onclick="decrypt()">Decrypt ➜</button>
+
+<h3>📤 Decrypted JSON</h3>
+<textarea id="decryptedText" rows="6"></textarea>
+
+<div id="error" class="error"></div>
+
+<script>
+  /* ---------- Base64 helpers ---------- */
+  function base64ToBytes(base64) {
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  }
+
+  function bytesToBase64(bytes) {
+    return btoa(String.fromCharCode(...bytes));
+  }
+
+  /* ---------- Import AES key ---------- */
+  async function importAesKey(base64Key) {
+    return crypto.subtle.importKey(
+      "raw",
+      base64ToBytes(base64Key),
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  /* ---------- Encrypt ---------- */
+  async function encrypt() {
+    try {
+      clearError();
+
+      const keyB64 = keyBase64.value.trim();
+      const ivB64 = ivBase64.value.trim();
+      const plain = plainText.value;
+
+      const key = await importAesKey(keyB64);
+      const iv = base64ToBytes(ivB64);
+
+      const encrypted = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv, tagLength: 128 },
+        key,
+        new TextEncoder().encode(plain)
+      );
+
+      cipherText.value = bytesToBase64(new Uint8Array(encrypted));
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  /* ---------- Decrypt ---------- */
+  async function decrypt() {
+    try {
+      clearError();
+
+      const keyB64 = keyBase64.value.trim();
+      const ivB64 = ivBase64.value.trim();
+      const cipherB64 = cipherText.value.trim();
+
+      const key = await importAesKey(keyB64);
+      const iv = base64ToBytes(ivB64);
+      const cipherBytes = base64ToBytes(cipherB64);
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv, tagLength: 128 },
+        key,
+        cipherBytes
+      );
+
+      decryptedText.value = new TextDecoder().decode(decrypted);
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  function showError(e) {
+    error.textContent = "❌ " + e.message;
+  }
+
+  function clearError() {
+    error.textContent = "";
+  }
+</script>
+
+</body>
+</html>
