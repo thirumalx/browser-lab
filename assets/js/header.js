@@ -18,9 +18,10 @@
         </div>
 
         <div class="right">
-            <a href="https://github.com/thirumalx/browser-lab"
+            <a href="https://github.com/thirumalx"
                target="_blank"
-               rel="noopener noreferrer">
+               rel="noopener noreferrer"
+               onclick="this.innerText='⭐ Opening GitHub…'">
                 ⭐ GitHub
             </a>
             <button class="nav-btn" id="backBtn" title="Back">Back ⬅</button>
