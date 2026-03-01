@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Images → Infinite GIF with NeSL Watermark</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    label { display: inline-flex; gap: 8px; align-items: center; }
+    input[type="number"] { width: 90px; }
+    #preview { max-width: 100%; border: 1px solid #ddd; margin-top: 16px; }
+    #log { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; padding: 12px; margin-top: 16px; }
+    button { padding: 10px 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Create Infinite-loop GIF (filename order) + “NeSL” watermark</h2>
+
+  <div class="row">
+    <label>
+      Select images:
+      <input id="files" type="file" accept="image/png,image/jpeg" multiple />
+    </label>
+
+    <label>
+      Frame duration (ms):
+      <input id="duration" type="number" value="800" min="50" step="50" />
+    </label>
+
+    <label>
+      Max width (px):
+      <input id="maxWidth" type="number" value="1280" min="0" step="10" />
+    </label>
+
+    <label>
+      Watermark opacity (0–255):
+      <input id="opacity" type="number" value="110" min="0" max="255" step="5" />
+    </label>
+
+    <button id="make">Generate GIF</button>
+  </div>
+
+  <img id="preview" alt="GIF preview will appear here" />
+  <div id="log"></div>
+
+  <!-- gif.js + worker from CDN -->
+  <script src="https://unpkg.com/gif.js.optimized/dist/gif.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (msg) => { $("log").textContent += msg + "\n"; };
+
+    // Natural sort so 2.png < 10.png
+    function naturalCompare(a, b) {
+      const ax = [], bx = [];
+      a.replace(/(\d+)|(\D+)/g, (_, $1, $2) => ax.push([$1 || Infinity, $2 || ""]));
+      b.replace(/(\d+)|(\D+)/g, (_, $1, $2) => bx.push([$1 || Infinity, $2 || ""]));
+      while (ax.length && bx.length) {
+        const an = ax.shift();
+        const bn = bx.shift();
+        const aNum = an[0] !== Infinity ? parseInt(an[0], 10) : null;
+        const bNum = bn[0] !== Infinity ? parseInt(bn[0], 10) : null;
+
+        if (aNum !== null && bNum !== null) {
+          if (aNum !== bNum) return aNum - bNum;
+        } else {
+          const aStr = an[1].toLowerCase();
+          const bStr = bn[1].toLowerCase();
+          if (aStr !== bStr) return aStr < bStr ? -1 : 1;
+        }
+      }
+      return ax.length - bx.length;
+    }
+
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function drawWatermark(ctx, width, height, text, opacity255) {
+      const margin = Math.max(12, Math.round(width * 0.02));
+      const fontSize = Math.max(14, Math.round(width * 0.035));
+      ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      ctx.textBaseline = "bottom";
+
+      const metrics = ctx.measureText(text);
+      const textW = metrics.width;
+      const textH = fontSize;
+
+      const x = width - textW - margin;
+      const y = height - margin;
+
+      // Shadow (subtle)
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(1, (opacity255/255) * 0.65)})`;
+      ctx.fillText(text, x + 2, y + 2);
+
+      // Main watermark
+      ctx.fillStyle = `rgba(255,255,255,${opacity255/255})`;
+      ctx.fillText(text, x, y);
+    }
+
+    $("make").addEventListener("click", async () => {
+      $("log").textContent = "";
+      $("preview").src = "";
+
+      const files = Array.from($("files").files || []);
+      if (!files.length) {
+        log("No images selected.");
+        return;
+      }
+
+      // Sort by filename (natural)
+      files.sort((f1, f2) => naturalCompare(f1.name, f2.name));
+      log("Sorted order:");
+      files.forEach(f => log("  - " + f.name));
+
+      const duration = parseInt($("duration").value, 10) || 800;
+      const maxWidthInput = parseInt($("maxWidth").value, 10);
+      const maxWidth = (isNaN(maxWidthInput) || maxWidthInput <= 0) ? null : maxWidthInput;
+      const opacity = Math.max(0, Math.min(255, parseInt($("opacity").value, 10) || 110));
+
+      // Prepare GIF encoder (infinite loop => repeat 0)
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        workerScript: "https://unpkg.com/gif.js.optimized/dist/gif.worker.js",
+        repeat: 0  // 0 = infinite loop
+      });
+
+      // Use one canvas for all frames
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Load all images sequentially and add frames
+      for (const file of files) {
+        const dataUrl = await readFileAsDataURL(file);
+        const img = await loadImage(dataUrl);
+
+        // Optional downscale to maxWidth
+        let targetW = img.naturalWidth;
+        let targetH = img.naturalHeight;
+        if (maxWidth && targetW > maxWidth) {
+          const scale = maxWidth / targetW;
+          targetW = Math.round(targetW * scale);
+          targetH = Math.round(targetH * scale);
+        }
+
+        canvas.width = targetW;
+        canvas.height = targetH;
+
+        // Draw image + watermark
+        ctx.clearRect(0, 0, targetW, targetH);
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        drawWatermark(ctx, targetW, targetH, "NeSL", opacity);
+
+        // Add frame (copy = true so it captures current pixels)
+        gif.addFrame(canvas, { copy: true, delay: duration });
+        log(`Added frame: ${file.name} (${targetW}×${targetH})`);
+      }
+
+      log("Rendering GIF…");
+
+      gif.on("finished", (blob) => {
+        const url = URL.createObjectURL(blob);
+        $("preview").src = url;
+
+        // Auto download link
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "NeSL_demo.gif";
+        a.textContent = "Download GIF";
+        a.style.display = "inline-block";
+        a.style.marginTop = "12px";
+
+        $("log").appendChild(document.createElement("hr"));
+        $("log").appendChild(a);
+
+        log("\nDone ✅ GIF loops infinitely and includes NeSL watermark.");
+      });
+
+      gif.render();
+    });
+  </script>
+</body>
+</html>
